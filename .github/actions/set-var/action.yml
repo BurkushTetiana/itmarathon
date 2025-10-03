@@ -110,7 +110,7 @@ runs:
       if: ${{ inputs.microservice == 'dotnet' }}
       shell: bash
       run: |
-        echo "PORT=80" >> $GITHUB_ENV
+        echo "PORT=8080" >> $GITHUB_ENV
         echo "CONTAINER_NAME=dotnet-app" >> $GITHUB_ENV
         echo "INSTANCE_NAME=dotnet" >> $GITHUB_ENV
         echo "CONTEXT=backend/ApiService" >> $GITHUB_ENV
