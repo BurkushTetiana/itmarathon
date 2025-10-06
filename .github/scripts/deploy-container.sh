@@ -174,7 +174,7 @@ region: us-east-1
 metrics:
   - aws_namespace: AWS/Billing
     aws_metric_name: EstimatedCharges
-    aws_dimensions: []
+    aws_dimensions: [Currency]
     aws_statistics: [Maximum]
     period_seconds: 21600
     range_seconds: 86400
