@@ -15,8 +15,8 @@
      ```json
      // .vscode/settings.json
      {
-       "cucumber.glue": ["Tests/**/*.cs"],
-       "cucumber.features": ["Tests/**/*.feature"]
+       "cucumber.glue": ["testautomation/SecretNick.TestAutomation/Tests/**/*.cs"],
+       "cucumber.features": ["testautomation/SecretNick.TestAutomation/Tests/**/*.feature"]
      }
      ```
    - **Rider**: Install Reqnroll plugin from Marketplace → Restart
@@ -26,28 +26,28 @@
 ```bash
 # Clone repo
 git clone <repo-url>
-cd SecretNick.TestAutomation/Tests
+cd <repo-root>
 
-# Restore packages
-dotnet restore
+# Restore test packages
+dotnet restore testautomation/SecretNick.TestAutomation/Tests/Tests.csproj
 
 # Install Playwright browsers
 # Replace net9.0 with your actual TargetFramework (e.g., net8.0, net9.0)
-pwsh bin/Debug/net9.0/playwright.ps1 install chromium
+pwsh testautomation/SecretNick.TestAutomation/Tests/bin/Debug/net9.0/playwright.ps1 install chromium
 ```
 
 ### Start Application
 
 ```bash
-# Create .env file with your values
+# From repository root, create .env file with your values
 cat > .env << EOF
-PSQL_USER=your_username
+PSQL_USER=admin
 PSQL_PASSWORD=your_password
-PSQL_DB=your_database
-CONNECTIONSTRINGS__DBCONNECTIONSTRING=Host=db;Port=5432;Database=your_database;Username=your_username;Password=your_password
+PSQL_DB=itm
+CONNECTIONSTRINGS__DBCONNECTIONSTRING=Host=db;Port=5432;Database=itm;Username=admin;Password=your_password
 EOF
 
-# Start Docker services
+# Start Docker services (compose.yml is in repo root)
 docker compose up -d
 
 # Wait for services
@@ -55,9 +55,7 @@ sleep 30
 curl http://localhost:8080/health
 ```
 
-**Note:** Adjust environment variables according to your docker-compose.yml requirements.
-
-Services run on (default ports, configure in docker-compose.yml):
+Services run on (default ports, configure in compose.yml):
 - Backend API: `http://localhost:8080`
 - Angular UI: `http://localhost:8081`
 - React UI: `http://localhost:8082`
@@ -66,38 +64,104 @@ Services run on (default ports, configure in docker-compose.yml):
 ## Project Structure
 
 ```
-Tests/
-├── Api/
-│   ├── Clients/              # API clients (Room, User, System)
-│   ├── Models/               # Request/Response DTOs
-│   └── Steps/                # API step definitions
-├── Ui/
-│   ├── Pages/                # Page Object Models
-│   └── Steps/                # UI step definitions
-├── Core/
-│   ├── Configuration/        # appsettings.*.json + ConfigManager
-│   └── Drivers/              # BrowserDriver, ApiDriver
-├── Features/
-│   ├── Api/                  # API feature files
-│   └── Ui/                   # UI feature files (@ui tag)
-├── Hooks/
-│   └── TestHooks.cs          # Setup/Teardown + Screenshots
-├── ImplicitUsings.cs         # Parallelization settings
-└── reqnroll.json             # Report config
+<repo-root>/
+├── compose.yml            # Docker services configuration
+├── .env                   # Environment variables
+└── testautomation/
+    └── SecretNick.TestAutomation/
+        ├── SecretNick.TestAutomation.sln
+        ├── README.md
+        └── Tests/
+            ├── Tests.csproj
+            ├── ImplicitUsings.cs
+            ├── reqnroll.json
+            ├── Api/
+            │   ├── Clients/      # API clients (Room, User, System)
+            │   ├── Models/       # Request/Response DTOs
+            │   └── Steps/        # API step definitions
+            ├── Ui/
+            │   ├── Pages/        # Page Object Models
+            │   └── Steps/        # UI step definitions
+            ├── Core/
+            │   ├── Configuration/ # appsettings.*.json + ConfigManager
+            │   └── Drivers/      # BrowserDriver, ApiDriver
+            ├── Features/
+            │   ├── Api/          # API feature files
+            │   └── Ui/           # UI feature files (@ui tag)
+            └── Hooks/
+                └── TestHooks.cs  # Setup/Teardown + Screenshots
 ```
 
 ## Configuration
 
-### Build Configurations
+### Creating Custom Build Configurations
 
-| Configuration       | Frontend | Headless | URL                   |
-|---------------------|----------|----------|-----------------------|
-| `Angular_Headless`  | Angular  | Yes      | http://localhost:8081 |
-| `Angular`           | Angular  | No       | http://localhost:8081 |
-| `React_Headless`    | React    | Yes      | http://localhost:8082 |
-| `React`             | React    | No       | http://localhost:8082 |
+You can create custom configurations for different environments, browsers, or test setups:
 
-**Note:** URLs are examples. Configure in `appsettings.{Configuration}.json`
+1. **Create configuration file** in `testautomation/SecretNick.TestAutomation/Tests/Core/Configuration/`:
+   ```
+   appsettings.{YourConfigName}.json
+   ```
+
+2. **Define your settings** (example: `appsettings.Staging_Firefox.json`):
+   ```json
+   {
+     "BaseUrls": {
+       "Ui": "http://staging.example.com:3000",
+       "Api": "http://staging-api.example.com/"
+     },
+     "Browser": {
+       "Type": "firefox",
+       "Headless": true,
+       "SlowMo": 100,
+       "DefaultTimeout": 45000,
+       "ViewportWidth": 1920,
+       "ViewportHeight": 1080
+     },
+     "TestRun": {
+       "DefaultTimeout": 45000
+     },
+     "Logging": {
+       "Level": "Debug",
+       "FilePath": "logs/test-run-{Date}.log"
+     }
+   }
+   ```
+
+3. **Run tests** with your configuration:
+   ```bash
+   cd testautomation/SecretNick.TestAutomation/Tests
+   dotnet test -c Staging_Firefox
+   ```
+
+### Configuration Parameters Reference
+
+**BaseUrls:**
+- `Ui` - Frontend application URL (Angular/React)
+- `Api` - Backend API base URL
+
+**Browser:**
+- `Type` - Browser engine: `chromium`, `firefox`, `webkit`
+- `Headless` - Run without UI: `true` (CI/CD) or `false` (local debugging)
+- `SlowMo` - Delay between actions in ms (0 = no delay, 500 = debug mode)
+- `DefaultTimeout` - Maximum wait time for elements/actions in ms
+- `ViewportWidth` / `ViewportHeight` - Browser window size in pixels
+
+**TestRun:**
+- `DefaultTimeout` - Global timeout for test scenarios in ms
+
+**Logging:**
+- `Level` - Log detail: `Information`, `Debug`, `Warning`, `Error`
+- `FilePath` - Log file location (supports `{Date}` placeholder)
+
+### Built-in Configurations
+
+| Configuration       | Frontend | Browser  | Headless | URL                   |
+|---------------------|----------|----------|----------|-----------------------|
+| `Angular_Headless`  | Angular  | Chromium | Yes      | http://localhost:8081 |
+| `Angular`           | Angular  | Chromium | No       | http://localhost:8081 |
+| `React_Headless`    | React    | Chromium | Yes      | http://localhost:8082 |
+| `React`             | React    | Chromium | No       | http://localhost:8082 |
 
 ### Configuration Priority (high to low)
 
@@ -105,36 +169,12 @@ Tests/
 2. **Environment variables** (prefix: `TEST_`)
 3. **appsettings.{Configuration}.json** (lowest)
 
-### appsettings File Format
-
-`Core/Configuration/appsettings.Angular_Headless.json`:
-```json
-{
-  "BaseUrls": {
-    "Ui": "http://localhost:8081",
-    "Api": "http://localhost:8080/"
-  },
-  "Browser": {
-    "Type": "chromium",
-    "Headless": true,
-    "SlowMo": 0,
-    "DefaultTimeout": 30000,
-    "ViewportWidth": 1920,
-    "ViewportHeight": 1080
-  },
-  "TestRun": {
-    "DefaultTimeout": 30000
-  },
-  "Logging": {
-    "Level": "Information",
-    "FilePath": "logs/test-run-{Date}.log"
-  }
-}
-```
-
 ### Override via CLI Parameters
 
 ```bash
+# From repository root
+cd testautomation/SecretNick.TestAutomation/Tests
+
 # Override base URL
 dotnet test -c Angular_Headless -- NUnit.TestParameter.BaseUrls:Ui=http://192.168.1.100:8081
 
@@ -157,11 +197,13 @@ dotnet test -c React -- \
 export TEST_BaseUrls__Ui="http://192.168.1.100:8081"
 export TEST_Browser__Headless="false"
 export TEST_Browser__Type="firefox"
+cd testautomation/SecretNick.TestAutomation/Tests
 dotnet test -c Angular_Headless
 
 # Windows PowerShell
 $env:TEST_BaseUrls__Ui = "http://192.168.1.100:8081"
 $env:TEST_Browser__Headless = "false"
+cd testautomation/SecretNick.TestAutomation/Tests
 dotnet test -c Angular_Headless
 ```
 
@@ -182,14 +224,18 @@ dotnet test -c Angular_Headless
 ```
 
 ```bash
+cd testautomation/SecretNick.TestAutomation/Tests
 dotnet test -c Angular_Headless --settings custom.runsettings
 ```
 
 ## Running Tests
 
+**Note:** All test commands should be run from `testautomation/SecretNick.TestAutomation/Tests/` directory.
+
 ### Run All Tests
 
 ```bash
+cd testautomation/SecretNick.TestAutomation/Tests
 dotnet test -c Angular_Headless
 dotnet test -c React
 ```
@@ -197,18 +243,22 @@ dotnet test -c React
 ### Run API Tests Only
 
 ```bash
+cd testautomation/SecretNick.TestAutomation/Tests
 dotnet test -c Angular_Headless --filter "TestCategory=api"
 ```
 
 ### Run UI Tests Only
 
 ```bash
+cd testautomation/SecretNick.TestAutomation/Tests
 dotnet test -c React --filter "TestCategory=ui"
 ```
 
 ### Filter by Multiple Tags
 
 ```bash
+cd testautomation/SecretNick.TestAutomation/Tests
+
 # AND operator
 dotnet test --filter "TestCategory=api&TestCategory=positive"
 
@@ -219,10 +269,103 @@ dotnet test --filter "TestCategory=done|TestCategory=automated"
 ### Run Specific Feature
 
 ```bash
+cd testautomation/SecretNick.TestAutomation/Tests
 dotnet test --filter "FullyQualifiedName~UserManagement"
 ```
 
+## Parallelization Configuration
+
+Configure test parallelization in `testautomation/SecretNick.TestAutomation/Tests/ImplicitUsings.cs`:
+
+```csharp
+[assembly: Parallelizable(ParallelScope.Fixtures)]
+[assembly: LevelOfParallelism(4)]
+```
+
+**Parameters:**
+- `ParallelScope.Fixtures` - Test fixtures (feature files) run in parallel, scenarios within features run sequentially
+- `ParallelScope.Children` - All tests run in parallel (use with caution for UI tests)
+- `LevelOfParallelism(N)` - Maximum N parallel threads (adjust based on CPU cores and resource availability)
+
+**Recommendations:**
+- Local: `LevelOfParallelism(2-4)` for smooth debugging
+- CI/CD: `LevelOfParallelism(4-8)` for faster execution
+- UI tests: Lower parallelism to avoid browser resource conflicts
+
+## Reqnroll Report Configuration
+
+Configure report generation in `testautomation/SecretNick.TestAutomation/Tests/reqnroll.json`:
+
+```json
+{
+  "language": {
+    "feature": "en"
+  },
+  "bindingCulture": {
+    "name": "en-US"
+  },
+  "trace": {
+    "traceSuccessfulSteps": true,
+    "traceTimings": true,
+    "minTracedDuration": "0:0:0.1",
+    "stepDefinitionSkeletonStyle": "RegexAttribute"
+  },
+  "generator": {
+    "allowDebugGeneratedFiles": false,
+    "allowRowTests": true,
+    "generateAsyncTests": false,
+    "addNonParallelizableMarkerForTags": []
+  },
+  "runtime": {
+    "stopAtFirstError": false,
+    "missingOrPendingStepsOutcome": "Inconclusive"
+  },
+  "plugins": [
+    {
+      "type": "Generator",
+      "name": "Reqnroll.xUnit.ReqnrollPlugin"
+    }
+  ]
+}
+```
+
+**Key settings:**
+- `traceSuccessfulSteps` - Include passed steps in reports (set `false` for shorter reports)
+- `traceTimings` - Show step execution times
+- `stopAtFirstError` - Stop test run on first failure (`true` for faster debugging)
+- `missingOrPendingStepsOutcome` - How to treat unimplemented steps: `Inconclusive`, `Ignore`, `Pending`
+
+**Report generation:**
+Reports are generated automatically after test run in:
+```
+testautomation/SecretNick.TestAutomation/Tests/bin/{Configuration}/net9.0/reqnroll_report.html
+```
+
 ## CI/CD Pipelines
+
+### Network Configuration for Docker Tests
+
+**CRITICAL:** When running tests in CI/CD pipelines, tests and application containers must communicate. Two approaches:
+
+**Approach 1: Host Network Mode (Recommended for CI/CD)**
+```yaml
+# In pipeline, start services with host network
+docker compose up -d
+
+# Tests access services via localhost
+# URLs in appsettings: http://localhost:8080, http://localhost:8081, etc.
+```
+
+**Approach 2: Docker Network**
+```yaml
+# Add tests to same network as application
+docker network create test-network
+docker compose up -d
+docker run --network test-network <test-container>
+
+# In appsettings, use service names:
+# http://backend:8080, http://angular:80, http://react:80
+```
 
 ### GitHub Actions
 
@@ -253,31 +396,57 @@ jobs:
       - name: Create .env
         run: |
           cat > .env << EOF
-          PSQL_USER=${{ secrets.PSQL_USER }}
+          PSQL_USER=admin
           PSQL_PASSWORD=${{ secrets.PSQL_PASSWORD }}
-          PSQL_DB=${{ secrets.PSQL_DB }}
-          CONNECTIONSTRINGS__DBCONNECTIONSTRING=${{ secrets.DB_CONNECTION_STRING }}
+          PSQL_DB=itm
+          CONNECTIONSTRINGS__DBCONNECTIONSTRING=Host=db;Port=5432;Database=itm;Username=admin;Password=${{ secrets.PSQL_PASSWORD }}
           EOF
-          # Add other environment variables as needed by your docker-compose.yml
       
       - name: Start Docker services
         run: |
           docker compose up -d
           sleep 30
       
-      - name: Wait for API
-        run: timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
+          timeout 60 bash -c 'until curl -f http://localhost:8081; do sleep 2; done'
+          timeout 60 bash -c 'until curl -f http://localhost:8082; do sleep 2; done'
+      
+      - name: Verify network connectivity
+        run: |
+          echo "=== Docker containers ==="
+          docker compose ps
+          echo "=== Backend API ==="
+          curl -v http://localhost:8080/health
+          echo "=== Angular UI ==="
+          curl -I http://localhost:8081
+          echo "=== React UI ==="
+          curl -I http://localhost:8082
       
       - name: Restore dependencies
-        run: dotnet restore Tests/Tests.csproj
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
+        run: dotnet restore Tests.csproj
+      
+      - name: Build tests
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
+        run: dotnet build Tests.csproj -c ${{ matrix.config }} --no-restore
       
       - name: Install Playwright
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
         run: |
           # Adjust path based on your TargetFramework (netX.0)
-          pwsh Tests/bin/Debug/net*/playwright.ps1 install --with-deps chromium
+          pwsh bin/Debug/net*/playwright.ps1 install --with-deps chromium
       
       - name: Run tests
-        run: dotnet test Tests/Tests.csproj -c ${{ matrix.config }} --logger trx
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
+        run: |
+          # Tests run on host and access Docker services via localhost
+          dotnet test Tests.csproj -c ${{ matrix.config }} --no-build --logger trx
+        env:
+          # Override URLs if needed (defaults use localhost)
+          TEST_BaseUrls__Api: "http://localhost:8080/"
+          TEST_BaseUrls__Ui: "http://localhost:${{ matrix.config == 'Angular_Headless' && '8081' || '8082' }}"
       
       - name: Upload artifacts
         if: always()
@@ -285,9 +454,10 @@ jobs:
         with:
           name: test-results-${{ matrix.config }}
           path: |
-            Tests/bin/${{ matrix.config }}/net*/reqnroll_report.html
-            Tests/bin/${{ matrix.config }}/net*/Screenshots/
-            Tests/TestResults/*.trx
+            testautomation/SecretNick.TestAutomation/Tests/bin/${{ matrix.config }}/net*/reqnroll_report.html
+            testautomation/SecretNick.TestAutomation/Tests/bin/${{ matrix.config }}/net*/Screenshots/
+            testautomation/SecretNick.TestAutomation/Tests/TestResults/*.trx
+            testautomation/SecretNick.TestAutomation/Tests/logs/
           retention-days: 30
       
       - name: Cleanup
@@ -310,8 +480,10 @@ strategy:
   matrix:
     Angular:
       buildConfig: 'Angular_Headless'
+      frontendPort: '8081'
     React:
       buildConfig: 'React_Headless'
+      frontendPort: '8082'
 
 steps:
 - task: UseDotNet@2
@@ -320,44 +492,60 @@ steps:
 
 - script: |
     cat > .env << EOF
-    PSQL_USER=$(PSQL_USER)
+    PSQL_USER=admin
     PSQL_PASSWORD=$(PSQL_PASSWORD)
-    PSQL_DB=$(PSQL_DB)
-    CONNECTIONSTRINGS__DBCONNECTIONSTRING=$(DB_CONNECTION_STRING)
+    PSQL_DB=itm
+    CONNECTIONSTRINGS__DBCONNECTIONSTRING=Host=db;Port=5432;Database=itm;Username=admin;Password=$(PSQL_PASSWORD)
     EOF
-    # Add other environment variables as needed
     docker compose up -d
     sleep 30
-    timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
   displayName: 'Start services'
+
+- script: |
+    timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
+    timeout 60 bash -c 'until curl -f http://localhost:$(frontendPort); do sleep 2; done'
+    echo "=== Services ready ==="
+    docker compose ps
+    curl -v http://localhost:8080/health
+    curl -I http://localhost:$(frontendPort)
+  displayName: 'Wait and verify services'
 
 - task: DotNetCoreCLI@2
   inputs:
     command: 'restore'
-    projects: 'Tests/Tests.csproj'
+    projects: 'testautomation/SecretNick.TestAutomation/Tests/Tests.csproj'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+    projects: 'testautomation/SecretNick.TestAutomation/Tests/Tests.csproj'
+    arguments: '-c $(buildConfig) --no-restore'
 
 - script: |
-    # Adjust path based on your TargetFramework (netX.0)
-    pwsh Tests/bin/Debug/net*/playwright.ps1 install --with-deps chromium
+    cd testautomation/SecretNick.TestAutomation/Tests
+    pwsh bin/Debug/net*/playwright.ps1 install --with-deps chromium
   displayName: 'Install Playwright'
 
 - task: DotNetCoreCLI@2
   inputs:
     command: 'test'
-    projects: 'Tests/Tests.csproj'
-    arguments: '-c $(buildConfig) --logger trx'
+    projects: 'testautomation/SecretNick.TestAutomation/Tests/Tests.csproj'
+    arguments: '-c $(buildConfig) --no-build --logger trx'
   displayName: 'Run tests'
+  env:
+    TEST_BaseUrls__Api: 'http://localhost:8080/'
+    TEST_BaseUrls__Ui: 'http://localhost:$(frontendPort)'
 
 - task: PublishTestResults@2
   condition: always()
   inputs:
     testResultsFormat: 'VSTest'
-    testResultsFiles: '**/*.trx'
+    testResultsFiles: '**/TestResults/*.trx'
 
 - task: PublishBuildArtifacts@1
   condition: always()
   inputs:
-    PathtoPublish: 'Tests/bin/$(buildConfig)/net*/'
+    PathtoPublish: 'testautomation/SecretNick.TestAutomation/Tests/bin/$(buildConfig)/net*/'
     ArtifactName: 'test-results-$(buildConfig)'
 
 - script: docker compose down -v
@@ -373,11 +561,9 @@ version: 0.2
 
 env:
   variables:
-    # Configure these according to your needs
-    PSQL_USER: your_user
-    PSQL_DB: your_database
+    PSQL_USER: admin
+    PSQL_DB: itm
   secrets-manager:
-    # Store sensitive data in AWS Secrets Manager
     PSQL_PASSWORD: "your-secret-name:password-key"
 
 phases:
@@ -385,7 +571,7 @@ phases:
     commands:
       - wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
       - chmod +x dotnet-install.sh
-      - ./dotnet-install.sh --channel 9.0  # Match your TargetFramework
+      - ./dotnet-install.sh --channel 9.0
       - export PATH="$HOME/.dotnet:$PATH"
       
       - |
@@ -395,34 +581,48 @@ phases:
         PSQL_DB=$PSQL_DB
         CONNECTIONSTRINGS__DBCONNECTIONSTRING=Host=db;Port=5432;Database=$PSQL_DB;Username=$PSQL_USER;Password=$PSQL_PASSWORD
         EOF
-        # Add other environment variables as needed
       
       - docker compose up -d
       - sleep 30
       - timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
+      - timeout 60 bash -c 'until curl -f http://localhost:8081; do sleep 2; done'
+      - timeout 60 bash -c 'until curl -f http://localhost:8082; do sleep 2; done'
+      - |
+        echo "=== Docker services status ==="
+        docker compose ps
+        echo "=== Testing connectivity ==="
+        curl -v http://localhost:8080/health
+        curl -I http://localhost:8081
+        curl -I http://localhost:8082
   
   build:
     commands:
-      - dotnet restore Tests/Tests.csproj
-      # Adjust path based on your TargetFramework (netX.0)
-      - pwsh Tests/bin/Debug/net*/playwright.ps1 install --with-deps chromium
-      - dotnet test Tests/Tests.csproj -c Angular_Headless --logger trx
+      - cd testautomation/SecretNick.TestAutomation/Tests
+      - dotnet restore Tests.csproj
+      - dotnet build Tests.csproj -c Angular_Headless --no-restore
+      - pwsh bin/Debug/net*/playwright.ps1 install --with-deps chromium
+      - |
+        # Tests access services via localhost
+        export TEST_BaseUrls__Api="http://localhost:8080/"
+        export TEST_BaseUrls__Ui="http://localhost:8081"
+        dotnet test Tests.csproj -c Angular_Headless --no-build --logger trx
   
   post_build:
     commands:
+      - cd $CODEBUILD_SRC_DIR
       - docker compose down -v
 
 artifacts:
   files:
-    # Adjust netX.0 based on your TargetFramework
-    - 'Tests/bin/Angular_Headless/net*/reqnroll_report.html'
-    - 'Tests/bin/Angular_Headless/net*/Screenshots/**/*'
-    - 'Tests/TestResults/**/*.trx'
+    - 'testautomation/SecretNick.TestAutomation/Tests/bin/Angular_Headless/net*/reqnroll_report.html'
+    - 'testautomation/SecretNick.TestAutomation/Tests/bin/Angular_Headless/net*/Screenshots/**/*'
+    - 'testautomation/SecretNick.TestAutomation/Tests/TestResults/**/*.trx'
+    - 'testautomation/SecretNick.TestAutomation/Tests/logs/**/*'
   name: test-results-$(date +%Y%m%d-%H%M%S)
 
 reports:
   test-results:
-    files: ['**/*.trx']
+    files: ['testautomation/SecretNick.TestAutomation/Tests/TestResults/**/*.trx']
     file-format: 'VisualStudioTrx'
 ```
 
@@ -432,7 +632,7 @@ reports:
 
 After test execution (replace `netX.0` with your TargetFramework version):
 ```
-Tests/bin/{Configuration}/netX.0/
+testautomation/SecretNick.TestAutomation/Tests/bin/{Configuration}/netX.0/
 ├── reqnroll_report.html          # HTML test report
 ├── Screenshots/                   # Failure screenshots (UI tests only)
 │   └── {ScenarioName}_{Timestamp}.png
@@ -443,45 +643,76 @@ Tests/bin/{Configuration}/netX.0/
 ### Viewing Reports Locally
 
 ```bash
+# From repository root
+
 # Open HTML report (adjust netX.0 to your version)
-start Tests/bin/Angular_Headless/net9.0/reqnroll_report.html  # Windows
-open Tests/bin/Angular_Headless/net9.0/reqnroll_report.html   # macOS
+start testautomation/SecretNick.TestAutomation/Tests/bin/Angular_Headless/net9.0/reqnroll_report.html  # Windows
+open testautomation/SecretNick.TestAutomation/Tests/bin/Angular_Headless/net9.0/reqnroll_report.html   # macOS
+xdg-open testautomation/SecretNick.TestAutomation/Tests/bin/Angular_Headless/net9.0/reqnroll_report.html  # Linux
 
 # View logs
-cat logs/test-run-*.log
+cat testautomation/SecretNick.TestAutomation/Tests/logs/test-run-*.log
 ```
-
-## Parallelization
-
-Configured in `ImplicitUsings.cs`:
-```csharp
-[assembly: Parallelizable(ParallelScope.Fixtures)]
-[assembly: LevelOfParallelism(4)]
-```
-
-- Test fixtures run in parallel (max 4)
-- Scenarios within feature run sequentially
 
 ## Troubleshooting
 
 **Port conflicts:**
 ```bash
+# From repository root
 docker compose down -v
-# Change ports in docker-compose.yml if needed
+# Change ports in compose.yml if needed
+```
+
+**Tests can't reach application in CI/CD:**
+```bash
+# Verify containers are running
+docker compose ps
+
+# Check container logs
+docker compose logs backend
+docker compose logs angular
+docker compose logs react
+
+# Test connectivity from host
+curl http://localhost:8080/health
+curl http://localhost:8081
+curl http://localhost:8082
+
+# Ensure appsettings use correct URLs (localhost:PORT in CI/CD)
 ```
 
 **Playwright browser missing:**
 ```bash
+cd testautomation/SecretNick.TestAutomation/Tests
 # Adjust path to your TargetFramework version (netX.0)
 pwsh bin/Debug/net9.0/playwright.ps1 install --with-deps chromium
 ```
 
 **Config not loading:**
 - Verify `appsettings.{Configuration}.json` exists in `bin/{Configuration}/netX.0/`
-- Check `.csproj` has `<Content Include>` for config files
-- Rebuild solution
+- Check `Tests.csproj` has `<Content Include>` for config files
+- Rebuild solution: `dotnet build -c {Configuration}`
 
 **Tests hang:**
 - Check `DefaultTimeout` in appsettings
-- Verify application is accessible
+- Verify application is accessible: `curl http://localhost:8080/health`
 - Check Docker container logs: `docker compose logs`
+
+**Docker services not starting:**
+```bash
+# From repository root
+docker compose down -v
+docker compose up -d
+docker compose ps  # Check status
+docker compose logs  # View logs
+```
+
+**Network issues in Docker:**
+```bash
+# Inspect Docker networks
+docker network ls
+docker network inspect bridge
+
+# Check if containers are on same network
+docker inspect <container-name> | grep NetworkMode
+```
