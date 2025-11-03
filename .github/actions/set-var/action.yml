@@ -67,6 +67,7 @@ runs:
         echo "BASE_API_URL=$BASE_API_URL" >> $GITHUB_ENV
         echo "Determined BASE_API_URL: $BASE_API_URL"
 
+
     - name: Set React Environment
       if: ${{ inputs.microservice == 'react' }}
       shell: bash
@@ -96,6 +97,7 @@ runs:
         echo "Updating BASE_API_URL in Angular project"
         jq --arg url "$BASE_API_URL" '.environment.backendApiUrl = $url' frontend/angular/config.json > tmp.config.json && mv tmp.config.json frontend/angular/config.json
         cat frontend/angular/config.json
+
 
     - name: Set Dotnet Environment
       if: ${{ inputs.microservice == 'dotnet' }}
