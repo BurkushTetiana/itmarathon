@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket       = "terraform-tfstate-firstfxbaget"
+    bucket       = "firstfxbaget"
     key          = "terraform.tfstate"
     region       = "eu-central-1"
     use_lockfile = true
