@@ -12,6 +12,7 @@ namespace Epam.ItMarathon.ApiService.Domain.Entities.User
         internal static int LastNameCharLimit = 40;
         internal static int DeliveryInfoCharLimit = 500;
         internal static int InterestsCharLimit = 1000;
+        public string UserCode;
 
         /// <summary>
         /// User's Room unique identifier.

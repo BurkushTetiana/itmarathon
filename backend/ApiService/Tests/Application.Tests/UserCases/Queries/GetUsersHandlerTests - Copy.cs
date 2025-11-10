@@ -12,15 +12,15 @@ namespace Epam.ItMarathon.ApiService.Application.Tests.UserCases.Queries
     /// <summary>
     /// Unit tests for the <see cref="GetUsersHandler"/> class.
     /// </summary>
-    public class GetUsersHandlerTests
+    public class DeleteUserHandlerTests
     {
         private readonly IUserReadOnlyRepository _userReadOnlyRepositoryMock;
         private readonly GetUsersHandler _handler;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="GetUsersHandlerTests"/> class with mocked dependencies.
+        /// Initializes a new instance of the <see cref="DeleteUserHandlerTests"/> class with mocked dependencies.
         /// </summary>
-        public GetUsersHandlerTests()
+        public DeleteUserHandlerTests()
         {
             _userReadOnlyRepositoryMock = Substitute.For<IUserReadOnlyRepository>();
             _handler = new GetUsersHandler(_userReadOnlyRepositoryMock);
