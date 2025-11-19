@@ -34,7 +34,7 @@ namespace Epam.ItMarathon.ApiService.Application.UseCases.User.Handlers
             {
                 if (user.UserCode == request.UserCode)
                 {
-                    currentUser = user;
+                    currentUser = user; 
                     break;
                 }
             }
