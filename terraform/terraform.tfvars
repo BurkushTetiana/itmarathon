@@ -84,4 +84,4 @@ db_subnet_group_name = "rds-private-subnet-group"
 ################################################################################
 
 domain_name = "itmepam.pp.ua"
-certificate_arn = "arn:aws:acm:eu-central-1:215600395338:certificate/c64bb15a-71ef-49a8-bc40-15c5fc99f5e3"
+certificate_arn = "arn:aws:acm:eu-central-1:215600395338:certificate/916a088c-608a-4846-8e3a-dd370483cf68"
