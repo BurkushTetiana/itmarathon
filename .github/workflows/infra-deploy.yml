@@ -69,7 +69,7 @@ jobs:
       - name: Cleanup AWS Dependencies Before Destroy
         if: ${{ env.ACTION == 'destroy' }}
         run: |
-          echo "🧹 Cleaning up AWS dependencies before destroy..."
+          echo "Cleaning up AWS dependencies before destroy..."
           
           # Get VPC ID from Terraform state or use known ID
           VPC_ID="vpc-02fc83fac9fa9d016"
@@ -160,7 +160,7 @@ jobs:
               sleep 45
               
               # Second attempt
-              echo "🔄 Second destroy attempt..."
+              echo "Second destroy attempt..."
               terraform destroy -auto-approve $TARGET
               ;;
           esac
