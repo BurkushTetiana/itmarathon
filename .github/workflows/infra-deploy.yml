@@ -48,8 +48,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
@@ -66,72 +64,54 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Cleanup AWS Dependencies Before Destroy
+      - name: AWS Cleanup Before Destroy
         if: ${{ env.ACTION == 'destroy' }}
         run: |
-          echo "Cleaning up AWS dependencies before destroy..."
-          
-          # Get VPC ID from Terraform state or use known ID
           VPC_ID="vpc-02fc83fac9fa9d016"
           
-          echo "Cleaning up resources in VPC: $VPC_ID"
-          
-          # 1. Delete Network Interfaces
-          echo "Checking for Network Interfaces..."
           ENI_IDS=$(aws ec2 describe-network-interfaces \
             --filters Name=vpc-id,Values=$VPC_ID \
             --query 'NetworkInterfaces[].NetworkInterfaceId' \
             --output text 2>/dev/null || echo "")
           
           if [ ! -z "$ENI_IDS" ]; then
-            echo "Found Network Interfaces: $ENI_IDS"
             for ENI_ID in $ENI_IDS; do
-              echo "Deleting Network Interface: $ENI_ID"
-              aws ec2 delete-network-interface --network-interface-id $ENI_ID || echo "Failed to delete ENI $ENI_ID, continuing..."
+              aws ec2 delete-network-interface --network-interface-id $ENI_ID 2>/dev/null || true
             done
-          else
-            echo "No Network Interfaces found"
           fi
           
-          # 2. Wait for ENI deletions to propagate
-          echo "Waiting for cleanup to propagate..."
           sleep 30
           
-          # 3. Try to delete non-default Security Groups
-          echo "Checking for Security Groups..."
+          ALB_ARN=$(aws elbv2 describe-load-balancers --query "LoadBalancers[?VpcId=='$VPC_ID'].LoadBalancerArn" --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$ALB_ARN" ]; then
+            aws elbv2 delete-load-balancer --load-balancer-arn $ALB_ARN 2>/dev/null || true
+          fi
+          
+          TG_ARNS=$(aws elbv2 describe-target-groups --query "TargetGroups[?VpcId=='$VPC_ID'].TargetGroupArn" --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$TG_ARNS" ]; then
+            for TG_ARN in $TG_ARNS; do
+              aws elbv2 delete-target-group --target-group-arn $TG_ARN 2>/dev/null || true
+            done
+          fi
+          
+          sleep 30
+          
           SG_IDS=$(aws ec2 describe-security-groups \
             --filters Name=vpc-id,Values=$VPC_ID \
             --query 'SecurityGroups[?GroupName!=`default`].GroupId' \
             --output text 2>/dev/null || echo "")
           
           if [ ! -z "$SG_IDS" ]; then
-            echo "Found Security Groups: $SG_IDS"
             for SG_ID in $SG_IDS; do
-              echo "Attempting to delete Security Group: $SG_ID"
-              aws ec2 delete-security-group --group-id $SG_ID || echo "Failed to delete SG $SG_ID, continuing..."
+              aws ec2 delete-security-group --group-id $SG_ID 2>/dev/null || true
             done
-          else
-            echo "No Security Groups found"
           fi
           
-          # 4. Delete Internet Gateway if attached
-          echo "Checking for Internet Gateway..."
-          IGW_ID=$(aws ec2 describe-internet-gateways \
-            --filters Name=attachment.vpc-id,Values=$VPC_ID \
-            --query 'InternetGateways[].InternetGatewayId' \
-            --output text 2>/dev/null || echo "")
-          
-          if [ ! -z "$IGW_ID" ]; then
-            echo "Found Internet Gateway: $IGW_ID"
-            # First detach
-            aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID || echo "Failed to detach IGW, continuing..."
-            # Then delete
-            aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID || echo "Failed to delete IGW, continuing..."
-          fi
-          
-          echo " Pre-destroy cleanup completed"
+          sleep 30
       
-      - name: Terraform Action (${{ env.ACTION }})
+      - name: Terraform Action
         run: |
           case "${MODULE}" in
             vpc) TARGET="-target=module.vpc" ;;
@@ -151,20 +131,14 @@ jobs:
               terraform apply -auto-approve tfplan 
               ;;
             destroy)
-              echo " Starting Terraform destroy..."
-              # First attempt
               terraform destroy -auto-approve $TARGET || true
-              
-              # If first attempt fails, wait and retry
-              echo " Waiting before retry..."
-              sleep 45
-              
-              # Second attempt
-              echo "Second destroy attempt..."
+              sleep 30
+              terraform destroy -auto-approve $TARGET || true
+              sleep 30
+              terraform refresh
               terraform destroy -auto-approve $TARGET
               ;;
           esac
-        shell: bash
 
   build-and-push:
     if: ${{ github.event.inputs.module == 'all' && github.event.inputs.action == 'apply' }}
